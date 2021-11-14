@@ -1,0 +1,249 @@
+---
+title: "Econ 320 Final Project"
+author: "Daoyang E"
+date: "2019/10/12"
+output: 
+  html_document:
+    toc: yes
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(wooldridge)
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(knitr)
+library(stargazer)
+library(car)
+```
+
+## Introduction and Motivation
+
+My research question is that how does the factors such as class attendance rate, percent homework turned in, proior term GPA, ACT scores, final grades and if the student is a freshman or sophomre will have an effect on their final grade. I find it interesting because this dataset gives me a direct impression about the impact of missing classes and homework would have on my final grade. The typical understanding is that all these values I listed above will have a negative correlation with the final grade,and some external information would be from the report "The impact of class attendance on student performance" by Tarig Fadelelmoula. The report says that "Positive correlation was found between attendance and final exam performance in all courses together, but the relationship between the variables was not statistically significant. This suggests that lecture  attendance is critical for learning, but a larger study is required to adjust for other factors". 
+
+In order to address this problem, my paper would go one step deeper, I would construct an econometrics model and use multiple regression analysis to analyze the correlation between final grade and all the other factors as mentioned by the external source.
+
+
+## Data
+
+Primarily I would use data from the "attend" dataset in the wooldridge package, which is collected by Professors Ronald Fisher and Carl Liedholm during a term in which they both taught principles of microeconomics at Michigan State University.
+
+### Description
+Primarily I would use data from the "attend" dataset in the wooldridge package, which is collected by Professors Ronald Fisher and Carl Liedholm during a term in which they both taught principles of microeconomics at Michigan State University. The data includes variables such as termGPA, prior GPA, ACT score, final score and attendace rate. I think it is useful in addressing my question because it not only includes the attendance rate but also includes other factors such as prior GPA and ACT scores so that I could analyze the effect of other factors on final scores. 
+
+### Data manipulation
+I do data manipulation here
+```{r}
+#filter out freshman
+attend1 <- attend %>% filter(frosh == 1)
+
+#filter out sophomre
+attend2 <- attend %>% filter(soph == 1)
+
+#combine sophomre and freshman
+attend_new <- rbind(attend1, attend2)
+
+#select the variables to evaluate and rename them
+myattend<-  attend_new %>% select(final, priGPA, ACT, atndrte, hwrte, frosh) %>% rename(attendance_rate = atndrte, homework_rate = hwrte, freshman = frosh)
+
+```
+
+### Summary statistics
+```{r, results='asis'}
+#display my summary in a html table
+stargazer(myattend, type = "html", digits = 2)
+```
+
+From this summary table we can see that the average final score is 25.75 with a standard deviation of 4.69. The min and max deviates from the mean a lot, but it is reasonable since I would expect there to exist some outliers. While the 25 percentile and 75 percentile is rather close to the mean, which means that the final scores gather towards the mean. This is a very good result since it might represent that this data follows normal distribution.
+
+### Plot
+Following are some graphs give a brief sense of how different factors would relate to the value I want analyze, the term GPA.
+
+```{r}
+#print image showing the number of freshman and sophomores
+ggplot(myattend, aes(x = freshman))+
+  geom_bar()+
+  ggtitle("Freshman vs Sophomore number with freshman = 1")
+```
+
+From this graph we see that there are far more sophomores than freshman students in this class.
+
+```{r}
+#print image showing the linear relation between attendance rate and final score
+ggplot(myattend, aes(x = attendance_rate, y = final, group = freshman, color = freshman))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = FALSE)+
+  ggtitle("Attendance rate vs final score with freshman = 1")
+```
+
+We see that although lack statistical significance, freshman holds a relatively weaker relationship between attendance rate and final score than sophomores.
+
+```{r}
+#print image showing the linear relation between prior GPA and final score
+ggplot(myattend, aes(x = priGPA, y = final, group = freshman, color = freshman))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = FALSE)+ 
+  ggtitle("Prior GPA vs final score with freshman = 1")
+```
+
+We see that although lack statistical significance, freshman holds a relatively weaker relationship between prior term GPA and final score than sophomores.
+
+```{r}
+#print image showing the linear relation between homework turn in rate and final score
+ggplot(myattend, aes(x = homework_rate, y = final, group = freshman, color = freshman))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = FALSE)+ 
+  ggtitle("Homework turn in rate vs final score with freshman = 1")
+```
+
+We see that although lack statistical significance, freshman holds a relatively weaker relationship between homework turn in rate and final score than sophomores.
+
+```{r}
+#print image showing the linear relation between ACT score and final score
+ggplot(myattend, aes(x = ACT, y = final, group = freshman, color = freshman))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = FALSE)+ 
+  ggtitle("ACT score vs final score with freshman = 1")
+```
+
+We see that although lack statistical significance, freshman holds a relatively weaker relationship between ACT score and final score than sophomores.
+
+
+## Regression Analysis
+
+### Motivation for regression and analysis
+Based on the summary statistics and the graphs, I will use regression analysis to test the significance on final scores from the given data. I believe factors such as prior GPA, ACT scores, homework turn in rate, attendance rate and class year will all be significant: I believe an increase in either of these factors will lead to an increase in the final score. Based on the graphs, although the relationships lack statistical significance, but they might present an overall statistical siginificance, some of them might present statistical significance independently, I will analyze these in the following regression analysis.
+
+### Regression Equations
+
+Below are the regressions that I will run to test these hypotheses:
+
+$$y = \beta_0 + \beta_1*x_1 + \beta_2*x_2 + \beta_3*x_3 + \beta_4*x_4 + \beta_5*x_5+ u $$
+
+$$final = \beta_0 + \beta_1*attendancerate+ u $$
+
+$$final = \beta_0 + \beta_1*attendancerate+ \beta_2*homeworkrate +u $$
+
+$$final = \beta_0 + \beta_1*attendancerate+ \beta_2*homeworkrate + \beta_3*ACT +u $$
+
+$$final = \beta_0 + \beta_1*attendancerate+ \beta_2*homeworkrate + \beta_3*ACT + \beta_4*priGPA + u $$
+
+$$final = \beta_0 + \beta_1*attendancerate+ \beta_2*homeworkrate + \beta_3*ACT + \beta_4*priGPA + \beta_5*freshman +u $$
+
+### Regression results
+```{r, results='asis'}
+#doing six linear regression by adding influence variables one by one
+m1 <- lm(final ~ attendance_rate, data = myattend)
+m2 <- lm(final ~ attendance_rate + homework_rate, data = myattend)
+m3 <- lm(final ~ attendance_rate + homework_rate + ACT, data = myattend)
+m4 <- lm(final ~ attendance_rate + homework_rate + ACT + priGPA, data = myattend)
+m5 <- lm(final ~ attendance_rate + homework_rate + ACT + priGPA + freshman, data = myattend)
+m6 <- lm(final ~ attendance_rate *freshman + homework_rate*freshman + ACT*freshman + priGPA*freshman, data = myattend)
+
+#show model 1 to model 5
+stargazer(list(m1,m2,m3,m4,m5),type="html")
+
+#show model 6 separately since I need to rename the column factors
+stargazer(list(m6), type="html", align=TRUE,
+          covariate.labels = c("sopho attendance rate", "sopho homework rate", "sopho ACT", "sopho priGPA", "fresh attendance rate","fresh homework rate", "fresh ACT", "fresh priGPA"))
+
+```
+
+### Regression discussion and analysis
+I ran 6 different regression models to influence factors that influence the final score a student would get in an economics class. The first regression shows that attendance rate is positively related with final score and this relation shows statistical significance, this conclusion is in accordance with the conclusion from the outside resource, and also in accordance with my intuition. It's reasonable to assume that attendance rate will have a positive relation with final score.
+
+In m2, it is surprising to find that, when adding homework rate in, the attendance rate loses its statistical significance, in the meantime, homework turn in rate is somewhat statistical significant in its relation with final scores.
+
+m3 add in ACT score as another influence factor, this time I find that all three factors, attendance rate, homework turn in rate as well as ACT score has a statistically significant relation with final score, which is quite wierd when I consider the result in m2.
+
+m4 takes the account of prior GPAs, this time, I find that only prior GPA and ACT scores has a statistically siginificant relation with final scores, no matter what the other factors are.
+
+in m5, I add in the binary factor if the student is a freshman, this time I find that the result does not show much difference with the result of m4. To get a better understanding of the binary factor freshman, I take it as a dummy variable and run m6, and I find out that the only three factors that show statistically significant relation with final score is sophomore homework turn in rate, sophomore prior GPA and freshman attendance rate. This result shows differece from the results in m4 and m5, and it still remains unsolved why this difference will occur.
+
+
+## Inference
+
+### T test
+The t-test shows at which level of significance we can reject the null hypothesis that a variable in the above model is equal to 0, meaning that it has no expected impact on the number of suicides per 100k persons.
+
+The t tests for the variables for each model are below:
+```{r, results='asis'}
+#show the T test score for variables in model 1
+stargazer(summary(m1)[["coefficients"]][, "t value"], type = "html", title = "Model 1: t-values")
+
+#show the T test score for variables in model 2
+stargazer(summary(m2)[["coefficients"]][, "t value"], type = "html", title = "Model 2: t-values")
+
+#show the T test score for variables in model 3
+stargazer(summary(m3)[["coefficients"]][, "t value"], type = "html", title = "Model 3: t-values")
+
+#show the T test score for variables in model 4
+stargazer(summary(m4)[["coefficients"]][, "t value"], type = "html", title = "Model 4: t-values")
+
+#show the T test score for variables in model 5
+stargazer(summary(m5)[["coefficients"]][, "t value"], type = "html", title = "Model 5: t-values")
+
+#show the T test score for variables in model 6
+stargazer(summary(m6)[["coefficients"]][, "t value"], type = "html", title = "Model 6: t-values")
+```
+
+the p value for the variables for each model is listed:
+```{r, results='asis'}
+#show p value for the variables in model 1
+stargazer(summary(m1)[["coefficients"]][, "Pr(>|t|)"], type = "html", title = "Model 1: Pr(>|t|)")
+
+#show p value for the variables in model 2
+stargazer(summary(m2)[["coefficients"]][, "Pr(>|t|)"], type = "html", title = "Model 2: Pr(>|t|)")
+
+#show p value for the variables in model 3
+stargazer(summary(m3)[["coefficients"]][, "Pr(>|t|)"], type = "html", title = "Model 3: Pr(>|t|)")
+
+#show p value for the variables in model 4
+stargazer(summary(m4)[["coefficients"]][, "Pr(>|t|)"], type = "html", title = "Model 4: Pr(>|t|)")
+
+#show p value for the variables in model 5
+stargazer(summary(m5)[["coefficients"]][, "Pr(>|t|)"], type = "html", title = "Model 5: Pr(>|t|)")
+
+#show p value for the variables in model 6
+stargazer(summary(m6)[["coefficients"]][, "Pr(>|t|)"], type = "html", title = "Model 6: Pr(>|t|)")
+```
+
+We see that the T-test results and p-values are in accordance with our regression analysis described above.
+m1: the attendance rate is significant at 0.01 significance level
+m2: the homework turn in rate is significant at 0.1 significance level
+m3: attendance rate and homework turn in rate are significant at 0.05 significance level while ACT is siginificant at 0.01 significance level
+m4: ACT and prior GPA are significant at 0.01 significance level
+m5: ACT and prior GPA are significant at 0.01 significance level, while homework turn in rate is significant at 0.1 significance level
+m6: Sophomore homework turn in rate and sophomore prior GPA are significant at 0.01 significance level, while  freshman attendance rate is significant at 0.05 significance level
+
+### F test
+I will run a F-test to see if attendance rate and homework turn in rate are jointly statistically signficiant in m2, since m2 is the only model that shows low statistical significance for all the variables
+
+```{r}
+#set null hypothesis
+myH0 <- c("attendance_rate", "homework_rate")
+
+#use linearHypothesis function to conduct F test
+linearHypothesis(m2, myH0)
+```
+
+Given that F statistic is 25.9225 and Pr(>F) is just 0.002855, we can reject the null that attendance rate and homework turn in rate are jointly equal to zero.
+
+
+## Conclusion
+
+In conclusion, my results indicate that attendance rate is actually not related to final score when taking into account of other variables. Contradictory to commen sense and the outside resources, attendance rate shows no statistical significance in its relation with final score when we add in other variables such as homewrok turn in rate, ACT scores and prior GPA. But if we add less variables, the relation between attendance rate and final score will have stronger statistical significance, in which case is in accordance with the outside resources. The overall results shows that ACT scores and prior GPA is the key factor in determing final scores.
+
+
+## Reference
+
+The reference is following:
+1. The impact of class attendance on student performance(2018). Almaarefa Colleges, Riyadh, Saudi Arabia. By Tarig Fadelelmoula. Retrieved from: https://www.researchgate.net/publication/325580345_Impact_of_class_attendance_on_student_performance
+
+2. The Relationship Between Attendance and Grades in the College Classroom(2005). The University of Texas at San Antonio. By H. Paul LeBlanc III. Retrieved from: http://communication.utsa.edu/leblanc/articles/art31.pdf
+
+3. Does Class Attendance Affect Academic Performance?(2012) Evidence from ¡°D¡¯Annunzio¡± University. By Vincenzo Andrietti, Rosaria D¡¯Addazio. Retrieved from: http://www.siecon.org/online/wp-content/uploads/2012/08/Andrietti-DAddazio.pdf
+

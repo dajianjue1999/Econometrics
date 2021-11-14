@@ -1,0 +1,105 @@
+---
+title: "Assignment 3 Econ320"
+#author: "Daoyang E"
+date: "2019/10/27"
+output: 
+  html_document: 
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+#Chunk setup
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=50),tidy=TRUE)
+
+# Call or load your packages here
+library(stargazer)
+library(tidyverse)
+library(wooldridge)
+library(corrplot)
+library(car)
+```
+
+# Multicolinearity detection and output presentation
+
+Using the data gpa1 from the wooldridge package create two new variables in the gpa1 data set  
+
+$$x = 3+ ACT*2$$
+$$z=ACT+2*hsGPA$$
+Create a correlation matrix of colGPA, hsGPA, ACT, x, z, and a correlation matrix graph
+
+```{r}
+gpanew <- gpa1 %>% mutate(x = 3 + ACT *2, z = ACT + 2 * hsGPA)
+M <- gpanew %>% select(colGPA, hsGPA, ACT, x, z) %>% cor()
+round(M, 3)
+corrplot(M, method = "circle")
+```
+
+
+This graph is not my favorite graph, it is too busy, but it will do the trick for now. 
+What can you say about the correlation matrix and the graphs? 
+Note: Extra points if you do another cooler graph!!!Like corrplot or chart.Correlation.
+
+###From the correlation matrix I would say that there exist a relative strong correlation between hsGPA and colGPA, while for other variables, there does not exist very strong correlation between them, and this difference could also be seen from the size of the circles, those having very high correlation is just because they have some linear correlations with others, or say, colinearity.
+
+
+Run the following six regressions, and show them al, toguether in a nice looking table  
+
+$$colGPA=\beta_0 + \beta_1hsGPA + \beta_2ACT + u $$
+$$colGPA=\beta_0 + \beta_1hsGPA + \beta_2ACT + + \beta_3x + + \beta_4z + u $$
+
+Make a summary of the second regression, look at it. 
+Then make sure that the output of the code for it doesn't show, this is just for you to see how R reacts to the multicolinearity problem. EXPLAIN what happened in the output and why.  
+
+```{r, results = 'hide'}
+library(stargazer)
+colG1 <- lm(colGPA ~ hsGPA + ACT, data = gpanew)
+colG2 <- lm(colGPA ~ hsGPA + ACT + x + z, data = gpanew)
+summary(colG2)
+```
+
+###We can see that the coefficient for x  and z are all NA, this is because x and z exhibits colinaearity and violates the rules for MLR.3--no perfect colinearity.
+
+Show the results for your regressions using the stargazaer package
+
+```{r, results='asis'}
+stargazer(list(colG1,colG2), type="html", title= "Determinants of College GPA", align=TRUE,
+          covariate.labels = c("High SchoolGPA","ACT", "x", "z"),
+          column.labels = c("Basic Model", "Model with multicolinearity"),
+          dep.var.caption  = "College GPA",
+          dep.var.labels   = "Previous Academics")
+```
+
+# Prove some OLS properties 
+
+Use R to 
+
+* evaluate the vif of model1 and model2. See what happens to model2, comment, and fix the code to be able to knit
+
+```{r}
+vif(colG1)
+```
+
+```{r eval = FALSE}
+vif(colG2)
+```
+
+###It says there are aliased coefficients in the model, which is saying that the denominator equals 0 in this case, and any number cannot be divided by zero.
+
+* demonstrate that the residuals of model1 add up to zero. What does that mean? EXPLAIN 
+
+```{r}
+round(sum(colG1$residuals),3)
+```
+
+###The residuals adding up to zero means that model1 follows MLR.4, that we should have zero conditional mean.
+
+* demonstrate the $R^2$ of a regression of the residuals of model1 on the original regressors must be zero. What does this mean? EXPLAIN
+
+```{r}
+resid <- colG1$residuals
+newreg <- lm(resid ~ hsGPA + ACT, data = gpanew)
+round(summary(newreg)$r.squared,3)
+```
+
+###This means that the error term u cannot be explained by the existing regressors, i.e. there does not exist a relationship between existing regressors and u. This fulfill MLR.4, the zero conditional mean assumption.

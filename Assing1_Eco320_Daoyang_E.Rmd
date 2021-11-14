@@ -1,0 +1,132 @@
+---
+title: "Assignment 1 Econ320"
+author: "Daoyang E"
+date: "2019/10/6"
+output: 
+  html_document: 
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(wooldridge)
+library(AER)
+library(knitr)
+data("PSID1982")
+```
+
+# Effects of wages on education
+ 
+From the package AER use the dataset PSID1982 (Cross-section data originating from the Panel Study on Income Dynamics, 1982). In this assignment we will use this data to investigate the effect of eduction on wages for this population. 
+
+Let's first investigate our data and a few relationships in it. This is a little of what I call the motivation part of your regression analysis. This is very simple you will have to do more involved things in your final project. 
+
+
+These two tables show the proportion of women and men in the dataset and the proportion of people that reside in a standard metropolitan statistical area. 
+```{r echo = T}
+prop.table(table(PSID1982$gender))
+prop.table(table(PSID1982$smsa))
+```
+
+The following table looks at the correlation table between wages education and experience. 
+What can you say about this correlations, do they have the expected sing.
+```{r echo = T}
+cortable <- PSID1982 %>% select(wage, education, experience) %>% cor()
+round(cortable, 3)
+```
+
+//The correlation between any pair of these three values is not very high, I would say that wage and education is positive weakly related, wage and experience is negatively weakly related, experience and education to be negatively weakly related.
+
+
+What about the average of some variables for the sample, and some statistics by gender.
+
+Here we use the package dplyr, the function `summarise_all()`, `summarise()` to make the calculations, and the functions `gather()` and `spread()` to present the tables in a better way. Figure out where to use the right function. 
+
+What can you say about these results? What can you say about the avergae values for women vs men? 
+```{r echo = T}
+PSID1982 %>% select(wage, education, experience) %>% summarise_all(mean)%>% gather(means, value) %>% kable()
+
+PSID1982  %>% select(wage, education, experience,gender) %>% group_by(gender) %>% summarise(avgeduc = mean(education), avgexper = mean(experience), avgwage = mean(wage), cor_wagvseduc = cor(wage, education)) %>% kable()
+```
+
+
+//According to these values, the average education and average experience for men and women do not differ very much, but in the meanwhile there exist very great differnce in their average wage. Men generally earn higher that women. Thus I could say that at present, men are still valued more than women.
+
+
+# Graphs 
+
+Let's look at those numbers using graphs. 
+```{r echo = T}
+
+ggplot(PSID1982 , aes(education, wage))+
+  geom_point(color="red", alpha=.5)+
+  geom_smooth(method='lm')+ 
+  ggtitle('Wage vs Educ') +
+  xlab('Education') +
+  ylab('Wage')
+
+ggplot(PSID1982 , aes(education , wage))+
+  geom_point( color = "red", alpha = 0.5)+
+  geom_smooth(method = 'lm')+ 
+  facet_grid(~gender)+ 
+  ggtitle('Wage vs Educ') + 
+  xlab('Education') +
+  ylab('Wage')
+  
+```
+
+# Simple regression analysis
+
+Now let's use the data to estimate the following equation
+$$ wage = \beta_0 + \beta_1*education + u $$
+
+Estimate this equation using the step by step method learned last class, the metod the minimizes SSR and the variance covarance method. (3 ways first)
+
+### Equation system results: step-by-step
+```{r echo = T}
+x <- PSID1982$education
+y <- PSID1982$wage
+sumxy=sum((x-mean(x))*(y-mean(y)))
+sumx2=sum((mean(x)-x)^2)
+(b1<-sumxy/sumx2)
+(b0<-mean(y)-b1*mean(x))   
+```
+
+### Function minimization results 
+```{r echo = T}
+x <- PSID1982$education
+y <- PSID1982$wage
+min.SSR <- function(data, par){sum((y - par[1] - (par[2]*x))^2)}
+result<-optim(par=c(b0,b1) , fn=min.SSR, data=dat)
+round(result$par,3)
+```
+
+### Covariance , variance method
+Using the `cov(x,y)` and `var(x)` functions in R calculate the $\hat\beta_0, \hat\beta_1$ based on the equation below.
+$$\hat\beta_1=\frac{Cov(x,y)}{Var(x)}$$ 
+$$\hat\beta_0 = \bar{y} - \hat\beta_1 \bar{x}$$
+```{r echo = T}
+x <- PSID1982$education
+y <- PSID1982$wage
+(b1 <- cov(x,y)/var(x))
+(b0<-mean(y)-b1*mean(x))
+```
+
+### lm() command 
+
+Finally use the lm() comand to estimate save your estimation in an object called reg and show the summary of your model. 
+$$ log(wage) = \beta_0 + \beta_1*education + u $$
+What can you say about this new results why is it better to use $log(wages)$?
+What is your interpretation of the coeficients and the $R^2$?
+```{r echo = T}
+education <- PSID1982$education
+wage <- PSID1982$wage
+(regre<-lm(log(wage)~education, PSID1982))
+summary(regre)
+```
+//For wage correlation with education, we generally assume there to be an increasing return of education, but this increasing return cannot be exprressed if we use wage as y variable. While if we use log(wage) as the y variable, we are able to express this increasing return of education as a percentage increase in estimated wage.
+
+My interpreation of the coefficients would be that one year more of education would increase the estimated wage by 7.14%, and the intercept in this case does not have a particular meaning.
+
+The R^2 means that only 20.71% of the data could be explained by this linear regression model.

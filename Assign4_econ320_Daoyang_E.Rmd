@@ -1,0 +1,94 @@
+---
+title: "Assignment Quantitative Variables Econ320"
+author: "Daoyang E"
+date: "2019/11/17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(wooldridge)
+library(tidyverse)
+library(stargazer)
+library(data.table)
+library(car)
+library(knitr)
+```
+
+## Regressions with Qualitative Information 
+
+1. Using the data wage2 from the wooldridge package. Estimate the models: m1, m2, m3, m4 
+
+Model 1 $$log(wage) = \beta_0 + \beta_1 educ + \beta_2 exper + \beta_3tenure + \beta_4 married + u $$
+Model 2  $$log(wage) = \beta_0 + \beta_1 educ + \beta_2 exper + \beta_3tenure + \beta_4 married + \beta_5 black + u $$
+Model 3  $$log(wage) = \beta_0 + \beta_1 educ + \beta_2 exper + \beta_3tenure + \beta_4 married + \beta_5 black + \beta_6 south + u $$ 
+Model 4  $$log(wage) = \beta_0 + \beta_1 educ + \beta_2 exper + \beta_3tenure + \beta_4 married + \beta_5 black + \beta_6 south + \beta_7 urban + u$$ 
+
+Report the results using a stargazer table. Holding other factors fixed what is the aproximate difference in monthly salary between blacks and non blacks, married vs single, urban vs rural?  Are these statistically significant? INTERPRET
+
+```{r, results = 'asis'}
+m1 <- lm(log(wage)~ educ + exper + tenure + married, data = wage2)
+m2 <- lm(log(wage)~ educ + exper + tenure + married + black, data = wage2)
+m3 <- lm(log(wage)~ educ + exper + tenure + married + black + south, data = wage2)
+m4 <- lm(log(wage)~ educ + exper + tenure + married + black + south + urban, data = wage2)
+stargazer(list(m1,m2,m3,m4), type="html", align=TRUE,
+          covariate.labels = c("Education", "Experience", "Tenure", "Married", "Black", "South", "Urban"),
+          column.labels = c("Model1", "Model2", "Model3", "Model4"),
+          dep.var.caption  = "Dependent Variable:",
+          dep.var.labels   = "Log(Salary)")
+```
+
+The approximate difference in monthly salary between balcks and nonblacks is that being a balck will reduce your wage by 18.8% and being married will increase your wage by 19.9% and being in urban will increase your wage by 18.4%, and all these factors are statistically significant at the 1% significance level.
+
+2. Using model 4 add the variables $exper^2$ and $tenure^2$ to the equation and show that they are jointly significant at 20% level
+
+```{r}
+res.ur <- lm(log(wage)~ educ + exper + tenure + married + black + south + urban + I(exper^2) + I(tenure^2), data = wage2)
+
+res.r <- lm(log(wage)~ educ + exper + tenure + married + black + south + urban, data = wage2)
+
+myH0 <- c("I(exper^2)", "I(tenure^2)")
+
+linearHypothesis(res.ur, myH0)
+```
+
+We see that their p-value is 22.6% in this case, and we want to reject the null hypothesis at 20% significant level, but 22.6% > 20%, so we cannot reject the null hypothesis and prove that these two values are jointly significant at 20% significance level.
+
+3. Using model 4 and add dummy variable for age groups less that or equal to 30, between 30 to 35, older than 35. Do a frequency table using `kable()` showing the distribution of each group.  Make older than 35 the reference group, run a regression, what can you say about the effect of age group on the wages? Put the results in a stargarzer table.
+
+```{r,results= 'asis'}
+cutputs <- c(0, 30, 35,38)
+wage2$rankage <- cut(wage2$age, cutputs)
+kable(table(wage2$rankage), col.names = c("Age group", "Freq"))
+
+wage2$rankage <- relevel(wage2$rankage,"(35,38]")
+mnew <- lm(log(wage)~ educ + exper + tenure + married + black + south + urban + rankage , data = wage2)
+
+stargazer(list(mnew), type="html", align=TRUE,
+          covariate.labels = c("Education", "Experience", "Tenure", "Married", "Black", "South", "Urban", "Younger than 30", "Between 30-35"),
+          dep.var.caption  = "Dependent Variable:",
+          dep.var.labels   = "Log(wage)")
+```
+
+We see that based on the reference group aged from 35 to 38, the age group between 30 and 35 will have 3.9% less wage than the reference group and the age group that is younger than 30 has 8% less wage than the reference group, which means that the younger you are, the less wage you will get.
+
+<br>
+4. Use model 4 but now allow wages to differ accross four groups of people, married and black, married and nonblack, single and black and single and non black. Put the results in a stargarzer table. (Hint: Think about how interactions work, what are all the categories in the interaction and what is the base category.) Do not create the interaction separate. Do it inside the `lm()` directly as learned in class. Interpret your results
+
+```{r, results='asis'}
+wage2$married <- as.factor(wage2$married)
+wage2$black <- as.factor(wage2$black)
+wage2$married <- relevel(wage2$married, "0")
+wage2$balck <- relevel(wage2$black, "0")
+
+mnew2 <- lm(log(wage)~ educ + exper + tenure + married * black  + south + urban , data = wage2)
+
+stargazer(list(mnew2), type="html", align=TRUE,
+          covariate.labels = c("Education", "Experience", "Tenure", "Married-Non Black", "Single-Black", "Married-Black", "South", "Urban"),
+          dep.var.caption  = "Dependent Variable:",
+          dep.var.labels   = "Log(salary)")
+```
+
+The base case is single non-black, so we should set black = 0 and married = 0. and we can see that maaried non-black will have 18.9% higher wage than the reference, single black will have 24.1% lower wage than the reference and married-black will have 9.2% lower wage than the reference
+
+

@@ -1,0 +1,144 @@
+---
+title: "Assingment 2 Econ320"
+author: "Daoyang E"
+date: "2019/10/22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+## Call the necesary packages here, that way the ouput of the package loading will be hidden in the document
+library(wooldridge)
+library(tidyverse)
+library(knitr)
+library(dplyr)
+```
+
+### A modification of exercise C4 chapter 3 
+
+Use the data in ATTEND for this exercise, and the Lab7 handout to work on these questions 
+
+(i)	Obtain the minimum, maximum, and average values for the variables atndrte, priGPA, and ACT.  Do it this two ways to practice 
+
+```{r, warning=FALSE}
+selected <- attend %>% select(atndrte, priGPA, ACT)
+selected %>% summarize(atndrte_min = min(atndrte), priGPA_min = min(priGPA), ACT_min = min(ACT), atndrte_max = max(atndrte), priGPA_max = max(priGPA), ACT_max = max(ACT), atndrte_mean =mean(atndrte), priGPA_mean = mean(priGPA), ACT_mean = mean(ACT)) %>% round(3) %>% gather() %>% kable()
+summary(selected)
+
+```
+
+
+(ii)	Estimate the model $$atndrte = \beta_0 + \beta_1 priGPA + \beta_2 ACT + u$$, to make it easier create an object with the model and then show the summary. 
+```{r}
+mc4<-lm(atndrte ~ priGPA + ACT, data = attend)
+summary(mc4)
+```
+
+
+(iii) Calculate the predicted atndrte for all values and the mean of it. 
+Then also calculate the predicted value of atndrte for the average values of the independent variables. Compare results.  
+```{r}
+(meanyhat=mean(fitted(mc4)))
+
+means<-data.frame(priGPA = mean(attend$priGPA), ACT = mean(attend$ACT))
+
+(yhatmeans<-predict(mc4, means))
+
+```
+
+
+(iv)	What is the predicted atndrte if priGPA= 3.65 and ACT= 20? What is the predicted difference in attendant rates between this and the one for the average independent variables calculated above.  
+In this case do not use the predict function for your code, retrive the coeffients and calculate the equation $$atndrte = \hat\beta_0 + \hat\beta_1 3.65 + \hat\beta_2 20 + u$$
+```{r, results='hold'}
+
+yhat2<-coef(mc4)[1]+coef(mc4)['priGPA']*3.65+ coef(mc4)['ACT']*20
+names(yhat2)<-NULL # removes the names 
+print(paste0("yhat= ", round((yhat2), 3)))
+print(paste0("Difference= ", round((yhat2- yhatmeans), 3)))
+
+```
+
+
+(v) Run two more models one only for freshman another one only for sophomore. Save the results in objects mfr, msoph respectibly
+
+```{r}
+freshpop = attend %>% filter(frosh == 1)
+sophpop = attend %>% filter(soph == 1)
+mfr <- lm(atndrte ~ priGPA + ACT, data = freshpop)
+msop <- lm(atndrte ~ priGPA + ACT, data = sophpop)
+```
+
+(vi) Using in-line code complete the table below. 
+
+The table below compare $\beta's$, $R^2$ and observations for the models estimated. 
+
+Variables | All | Freshmen | Sophomore
+----------|-----|----------|----------
+$\beta_0$ | `r round(coef(mc4)[1],3)` |  `r round(coef(mfr)[1],3)`|`r round(coef(msop)[1],3)`
+$\beta_1$ | `r round(coef(mc4)['priGPA'],3)`|`r round(coef(mfr)['priGPA'],3)`|`r round(coef(msop)['priGPA'],3)` 
+$\beta_2$ | `r round(coef(mc4)['ACT'],3)`|`r round(coef(mfr)['ACT'],3)`|`r round(coef(msop)['ACT'],3)`
+$R^2$ | `r round(summary(mc4)$r.squared,3)`|`r round(summary(mfr)$r.squared,3)`|`r round(summary(msop)$r.squared,3)`  
+$N$ |`r nobs(mc4)` |`r nobs(mfr)`|`r nobs(msop)` 
+
+
+(vii) Calculate the correlation between the residuals and the priGPA for the first model. 
+```{r}
+round(cor(resid(mc4), attend$priGPA), 3) 
+```
+
+## From C10 
+
+Use the data in HTV to answer this question. The data set includes information on wages, education, parents' education, and several other variables for 1,230 working men in 1991. 
+
+(i)  What is the range of the educ variable in the sample? What percentage of men completed twelfth grade but no higher grade? Do the men or their parents have, on average, higher levels of education
+
+```{r}
+# summary provides de mean and max of the variable therefore the range
+summary(htv$educ)
+# the mean of the logical expression gives the percentage of men that completed 12th grade but not higher. 
+educ12 <- htv %>% filter(educ ==12) %>% nrow()
+print(paste0("Percentage of men with HS= ", round((educ12)/nrow(htv), 3)))
+# See answers assignment 1 for this 
+htv %>% select(educ, motheduc,fatheduc) %>% summarise_all(mean) %>% gather(means, value) %>% setNames(.,c("Average")) %>%kable(digits=3)
+
+```
+
+
+(ii)  Estimate the regression model $$educ = \beta_0 + \beta_1motheduc + \beta_2fatheduc + u$$ by OLS and report the results in the usual form. How much sample variation in educ is explained by parentsâ€? education? Interpret the coefficient on motheduc.
+```{r}
+medu <- lm(educ~motheduc + fatheduc, data = htv)
+summary(medu)
+```
+
+We see that the $R^2$ of 24.93% of the sample variation could be explained by parents' education, the coefficients of mother education means that one year increase in mother education will lead to 0.304 year increase in child education
+
+
+(iii)  Add the variable abil (a measure of cognitive ability) to the regression from part (ii), and report the results in equation form. Does â€œabilityâ€? help to explain variations in education, even after controlling for parentsâ€? education? Explain.
+```{r}
+medua <- lm(educ~motheduc + fatheduc + abil, data = htv)
+summary(medua)
+```
+
+$$educ= `r round(coef(medua)[1],3)` + `r round(coef(medua)['motheduc'],3)`*motheduc + `r round(coef(medua)['fatheduc'],3)`*fatheduc + `r round(coef(medua)['abil'],3)`*abil$$
+"ability" does help to explain variables in education, we see there is an increase in $R^2$, which means that more variation in education has been explained through adding the ability variable
+
+(iv)Now estimate an equation where abil appears in quadratic form
+
+```{r}
+meduc2 <- lm(educ ~ motheduc + fatheduc + +abil + I(abil^2), data = htv)
+summary(meduc2)
+```
+
+(v) If you have access to a statistical program that includes graphing capabilities, use the estimates in part (iv) to graph the relationship between the predicted education and abil. Set motheduc and fatheduc at their average values in the sample, 12.18 and 12.45, respectively. See handout DGP for this. 
+
+
+```{r}
+dat<-data.frame(educhat=predict(meduc2), abil=htv$abil)
+plot<-ggplot(dat, aes(x = abil, y = educhat))+ # mapping x and y 
+  geom_point(col=4, alpha=.5)+ # scatter plot defining atributes for color and transparency
+    geom_smooth(color = "red", se = F)+ # plot the function of the relation between educ and ability
+  ggtitle(paste("Predicted Education and Ability")) # title of the graph
+print(plot)
+```
+
+
